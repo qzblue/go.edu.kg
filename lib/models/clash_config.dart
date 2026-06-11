@@ -234,7 +234,7 @@ abstract class Dns with _$Dns {
     @Default(['223.5.5.5'])
     @JsonKey(name: 'default-nameserver')
     List<String> defaultNameserver,
-    @Default(DnsMode.fakeIp)
+    @Default(DnsMode.redirHost)
     @JsonKey(name: 'enhanced-mode')
     DnsMode enhancedMode,
     @Default('198.18.0.1/16')

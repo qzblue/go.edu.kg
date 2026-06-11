@@ -147,18 +147,6 @@ class _AccountViewState extends ConsumerState<AccountView> {
                         label: '账户',
                         value: userInfo?['email']?.toString() ?? '未知',
                       ),
-                      const SizedBox(height: 12),
-                      _DetailRow(
-                        icon: Icons.calendar_today_outlined,
-                        label: '注册时间',
-                        value: _formatTimestamp(userInfo?['created_at']),
-                      ),
-                      const SizedBox(height: 12),
-                      _DetailRow(
-                        icon: Icons.login_outlined,
-                        label: '最近登录',
-                        value: _formatTimestamp(userInfo?['last_login_at']),
-                      ),
                     ],
                   ),
                 ),

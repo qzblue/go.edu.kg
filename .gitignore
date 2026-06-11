@@ -72,3 +72,6 @@ devtools_options.yaml
 core/*.exe
 core/*.exe.bak
 /output/
+
+# 本地 env 备份
+env.windows.bak.json

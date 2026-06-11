@@ -263,7 +263,12 @@ class ApplicationState extends ConsumerState<Application> {
           ],
           builder: (_, child) {
             if (!_appReady) {
-              return AppEnvManager(child: child!);
+              // 登录页/初始化阶段也套上应用自带窗口栏（桌面端：置顶/最小化/最大化/关闭）
+              return AppEnvManager(
+                child: system.isDesktop
+                    ? WindowHeaderContainer(child: child!)
+                    : child!,
+              );
             }
             return AppEnvManager(
               child: _buildApp(

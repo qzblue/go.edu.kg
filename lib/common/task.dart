@@ -188,13 +188,61 @@ Future<Map<String, dynamic>> _makeRealProfileTask(
   final isEnableDns = rawConfig['dns']['enable'] == true;
   final systemDns = 'system://';
   if (overrideDns || !isEnableDns) {
-    final dns = switch (!isEnableDns) {
+    var dns = switch (!isEnableDns) {
       true => realPatchConfig.dns.copyWith(
         nameserver: [...realPatchConfig.dns.nameserver, systemDns],
       ),
       false => realPatchConfig.dns,
     };
+    // —— 国内直连 DNS 加固（修复智能分流下国内站点打不开）——
+    // 实测根因：部分网络（如本机测试环境）封禁了到公共 DNS 的 UDP(53) 查询，
+    // 而原配置把国内域名钉死在 UDP/主机名-DoH 上：
+    //   nameserver-policy: www.baidu.com→114.114.114.114(UDP，被封)、
+    //                      geosite:cn→https://doh.pub(主机名 DoH，需先用 default-nameserver
+    //                      的 223.5.5.5 UDP 解析 doh.pub，同样被封)。
+    // 于是命中 DIRECT 的国内域名解析失败、直连拿不到真实 IP → 国内站点打不开；
+    // 全局模式因一切走代理、由代理远程解析，所以正常。
+    // 修复：
+    //  1) 用 DoH-over-IP（直接连 IP，无需先解析域名，能穿透封 UDP 的网络）+ 普通 UDP
+    //     （正常网络更快）+ system://（系统解析兜底）。
+    //  2) 清空 nameserver-policy，去掉把国内域名钉死到不可用解析器的默认项。
+    //  3) redir-host：DNS 返回真实 IP，直连域名能正确连到真实服务器。
+    //  4) 去掉国外 fallback(tls://8.8.4.4 等在国内常被墙、会拖垮解析)。
+    const extraFakeIpFilter = [
+      '*.lan',
+      '*.local',
+      '+.msftconnecttest.com',
+      '+.msftncsi.com',
+      'time.*.com',
+      'time.*.gov',
+      'ntp.*.com',
+      '+.pool.ntp.org',
+      'stun.*.*',
+      '+.market.xiaomi.com',
+    ];
+    dns = dns.copyWith(
+      enhancedMode: DnsMode.redirHost,
+      nameserver: const [
+        'https://223.5.5.5/dns-query',
+        'https://223.6.6.6/dns-query',
+        '223.5.5.5',
+        '119.29.29.29',
+        'system://',
+      ],
+      proxyServerNameserver: const [
+        'https://223.5.5.5/dns-query',
+        'https://223.6.6.6/dns-query',
+      ],
+      nameserverPolicy: const {},
+      fallback: const [],
+      fakeIpFilter: [
+        ...dns.fakeIpFilter,
+        ...extraFakeIpFilter.where((s) => !dns.fakeIpFilter.contains(s)),
+      ],
+    );
     rawConfig['dns'] = dns.toJson();
+    // fallback 已清空，移除 fallback-filter 避免残留影响解析
+    rawConfig['dns'].remove('fallback-filter');
     rawConfig['dns']['nameserver-policy'] = {};
     for (final entry in dns.nameserverPolicy.entries) {
       rawConfig['dns']['nameserver-policy'][entry.key] =

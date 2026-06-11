@@ -8,6 +8,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/views/proxies/common.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,13 +68,11 @@ class _DashboardViewState extends ConsumerState<DashboardView>
       actions: [
         IconButton(
           icon: const Icon(Icons.support_agent),
-          tooltip: '在线客服',
-          onPressed: openCrispChat,
-        ),
-        IconButton(
-          icon: const Icon(Icons.campaign_outlined),
-          tooltip: '公告通知',
-          onPressed: () => fetchAndShowAnnouncements(context),
+          tooltip: '联系客服：evebrown810@gmail.com',
+          onPressed: () => launchUrl(
+            Uri.parse('mailto:evebrown810@gmail.com'),
+            mode: LaunchMode.externalApplication,
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.language),
@@ -777,6 +776,23 @@ class _SpeedChip extends StatelessWidget {
 
 // ─── Node Selector ─────────────────────────────────────────────────────────
 
+// 自动选择分组的 now 拿不到时，按已测延迟挑选最低延迟节点作为展示回退
+String? _lowestDelayNode(WidgetRef ref, Group group) {
+  String? best;
+  int? bestDelay;
+  for (final p in group.all) {
+    if (!_isUserSelectableProxy(p)) continue;
+    if (p.type == 'URLTest') continue;
+    final d = ref.watch(getDelayProvider(proxyName: p.name));
+    if (d == null || d <= 0) continue;
+    if (bestDelay == null || d < bestDelay) {
+      bestDelay = d;
+      best = p.name;
+    }
+  }
+  return best;
+}
+
 class _NodeSelector extends ConsumerWidget {
   const _NodeSelector();
 
@@ -816,15 +832,49 @@ class _NodeSelector extends ConsumerWidget {
     // Use the first Selector-type group as the primary proxy group
     final selectorGroups = groups.where((g) => g.type == GroupType.Selector).toList();
     final primaryGroup = selectorGroups.isNotEmpty ? selectorGroups.first : groups.first;
-    final rawSelected = selectedMap[primaryGroup.name] ?? primaryGroup.realNow;
-    // If the selected proxy is a URLTest sub-group (e.g. "自动选择"), show friendly label
-    final selectedProxy = primaryGroup.all.cast<Proxy?>().firstWhere(
-      (p) => p!.name == rawSelected,
-      orElse: () => null,
-    );
-    final selectedName = (selectedProxy?.type == 'URLTest')
-        ? '自动选择'
-        : rawSelected;
+    // currentGroupsStateProvider 会把 now 抹成空串（见 providers/state.dart），
+    // 所以这里改读原始 groupsProvider 拿核心真实的 now（自动选择实测选中的节点）。
+    final rawGroups = ref.watch(groupsProvider);
+    String rawNow(String groupName) {
+      for (final g in rawGroups) {
+        if (g.name == groupName) return g.realNow;
+      }
+      return '';
+    }
+
+    // directSel: 用户对主选择组的显式选择（可能为空）。
+    final directSel = selectedMap[primaryGroup.name];
+    final primaryNow = directSel ?? rawNow(primaryGroup.name);
+
+    // 找出作为主选择组直接成员的"自动选择"(URLTest) 分组
+    final autoMembers = <Group>[
+      for (final g in groups)
+        if (g.type == GroupType.URLTest &&
+            primaryGroup.all.any((p) => p.name == g.name))
+          g,
+    ];
+
+    // 判断当前是否处于"自动选择"：主组直接选中的就是某个 URLTest 分组
+    Group? activeAuto;
+    for (final g in autoMembers) {
+      if (g.name == primaryNow) {
+        activeAuto = g;
+        break;
+      }
+    }
+
+    final String selectedName;
+    final String delayTarget;
+    if (activeAuto != null) {
+      // 自动选择：读核心真实 now；为空时退而按延迟自行挑最低延迟节点
+      var autoNode = rawNow(activeAuto.name);
+      if (autoNode.isEmpty) autoNode = _lowestDelayNode(ref, activeAuto) ?? '';
+      selectedName = autoNode.isNotEmpty ? '自动选择 · $autoNode' : '自动选择';
+      delayTarget = autoNode.isNotEmpty ? autoNode : primaryNow;
+    } else {
+      selectedName = primaryNow;
+      delayTarget = selectedName;
+    }
     final hasSelection = selectedName.isNotEmpty;
 
     return GestureDetector(
@@ -888,8 +938,8 @@ class _NodeSelector extends ConsumerWidget {
               ),
             ),
             // Delay test button (only when a node is selected)
-            if (hasSelection && rawSelected.isNotEmpty)
-              _DelayTestButton(proxyName: rawSelected),
+            if (hasSelection && delayTarget.isNotEmpty)
+              _DelayTestButton(proxyName: delayTarget),
             // Refresh button
             _RefreshButton(),
             const SizedBox(width: 4),
@@ -906,6 +956,8 @@ class _NodeSelector extends ConsumerWidget {
 
 // ─── Delay Test Button ─────────────────────────────────────────────────────
 
+const _delayTestUrl = 'https://www.gstatic.com/generate_204';
+
 class _DelayTestButton extends StatefulWidget {
   final String proxyName;
   const _DelayTestButton({required this.proxyName});
@@ -916,7 +968,7 @@ class _DelayTestButton extends StatefulWidget {
 
 class _DelayTestButtonState extends State<_DelayTestButton> {
   bool _testing = false;
-  int? _delay; // null = not tested, -1 = timeout, >0 = ms
+  int? _delay; // null = 未测, <=0 = 超时, >0 = ms
 
   @override
   void didUpdateWidget(_DelayTestButton oldWidget) {
@@ -928,12 +980,14 @@ class _DelayTestButtonState extends State<_DelayTestButton> {
 
   Future<void> _test() async {
     if (_testing) return;
-    setState(() { _testing = true; _delay = null; });
+    setState(() {
+      _testing = true;
+      _delay = null;
+    });
     try {
-      final result = await coreController.getDelay(
-        'https://www.google.com/generate_204',
-        widget.proxyName,
-      );
+      final result = await coreController
+          .getDelay(_delayTestUrl, widget.proxyName)
+          .timeout(const Duration(seconds: 8));
       if (mounted) setState(() => _delay = result.value ?? -1);
     } catch (_) {
       if (mounted) setState(() => _delay = -1);
@@ -1117,7 +1171,15 @@ bool _isInfoNode(String name) {
 // Keep URLTest proxies (自动选择), filter out Fallback/other sub-group refs and info nodes
 bool _isUserSelectableProxy(Proxy proxy) {
   if (_isInfoNode(proxy.name)) return false;
-  const rejectTypes = {'Fallback', 'Selector', 'LoadBalance', 'Relay'};
+  // 排除内置策略节点（直连/拒绝/全局等），普通用户不需要
+  const builtinNames = {
+    'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL',
+  };
+  if (builtinNames.contains(proxy.name.toUpperCase())) return false;
+  // 排除子分组与直连/拒绝类型
+  const rejectTypes = {
+    'Fallback', 'Selector', 'LoadBalance', 'Relay', 'Direct', 'Reject',
+  };
   return !rejectTypes.contains(proxy.type);
 }
 
@@ -1159,6 +1221,10 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabLabels.length, vsync: this);
+    // 打开节点选择页时自动对全部节点测一次延迟
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _handleTestAll();
+    });
   }
 
   @override
@@ -1246,11 +1312,8 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
           .expand((g) => g.all.where(_isUserSelectableProxy))
           .where((p) => p.type != 'URLTest')
           .toList();
-      await Future.wait(
-        proxies.map((p) => coreController
-            .getDelay('https://www.google.com/generate_204', p.name)
-            .catchError((_) => Delay(name: p.name, url: ''))),
-      );
+      // 官方批量测速：结果写入 getDelayProvider，节点列表自动显示延迟
+      await delayTest(proxies);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Text('测速完成'),
@@ -1292,8 +1355,12 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
     final selectedMap = ref.watch(selectedMapProvider);
     final groups = groupsState.value;
 
-    // Only show Selector-type groups (e.g. 雨滴云); hide URLTest/Fallback groups
+    // Only show Selector-type groups; hide URLTest/Fallback groups
     final mainGroups = groups.where((g) => g.type == GroupType.Selector).toList();
+    // 只展示主分组（首个 Selector，与仪表盘"当前节点"一致），
+    // 从而扁平化为单一节点列表，不再出现 GLOBAL/netflix 等分组分类
+    final primaryGroups =
+        mainGroups.isNotEmpty ? [mainGroups.first] : mainGroups;
 
     return Scaffold(
       appBar: AppBar(
@@ -1337,7 +1404,7 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
         children: _tabLabels.map((region) {
           return _NodeListForRegion(
             region: region,
-            groups: mainGroups,
+            groups: primaryGroups,
             selectedMap: selectedMap,
             filterProxies: _filterProxies,
           );

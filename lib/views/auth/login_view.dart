@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/xboard_api.dart';
 import 'package:fl_clash/state.dart';
@@ -8,13 +6,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:window_manager/window_manager.dart';
-
-// iOS 风格调色板
-const _accent = Color(0xFF007AFF);
-const _label = Color(0xFF1C1C1E);
-const _secondary = Color(0xFF8E8E93);
-const _hairline = Color(0xFFE5E5EA);
 
 const _rememberKey = 'login_remember';
 const _savedEmailKey = 'login_email';
@@ -110,48 +101,58 @@ class _LoginViewState extends ConsumerState<LoginView> {
     );
   }
 
-  /// 邀请制说明（iOS 原生弹窗）
+  /// 邀请制说明（iOS 原生弹窗，跟随明暗主题）
   void _showInviteInfo(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     showCupertinoDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('关于注册'),
-        content: const Padding(
-          padding: EdgeInsets.only(top: 10),
-          child: Text(
-            '本产品由在美华人自发组建的协会搭建，是专为短期回国的在美华人提供的'
-            '联网工具。\n\n'
-            '目前采用协会内部邀请制度，暂不对外公开注册与销售。'
-            '如需账号，请通过协会内部邀请获取。',
-            style: TextStyle(fontSize: 13, height: 1.45),
-            textAlign: TextAlign.start,
+      builder: (ctx) => CupertinoTheme(
+        data: CupertinoThemeData(brightness: brightness),
+        child: CupertinoAlertDialog(
+          title: const Text('关于注册'),
+          content: const Padding(
+            padding: EdgeInsets.only(top: 10),
+            child: Text(
+              '本产品由在美华人自发组建的协会搭建，是专为短期回国的在美华人提供的'
+              '联网工具。\n\n'
+              '目前采用协会内部邀请制度，暂不对外公开注册与销售。'
+              '如需账号，请通过协会内部邀请获取。',
+              style: TextStyle(fontSize: 13, height: 1.45),
+              textAlign: TextAlign.start,
+            ),
           ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('我知道了'),
+            ),
+          ],
         ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('我知道了'),
-          ),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = cs.primary;
+    final onSurface = cs.onSurface;
+    final secondary = cs.onSurfaceVariant;
+    final hairline = cs.outlineVariant;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F7),
+      backgroundColor: cs.surface,
       body: Stack(
         children: [
-          // 极淡的纵向背景渐变（iOS 质感，非高饱和）
-          const Positioned.fill(
+          // 跟随主题的极淡纵向背景渐变（明暗自适应）
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFFFFFFF), Color(0xFFEDF0F5)],
+                  colors: [cs.surface, cs.surfaceContainerHighest],
                 ),
               ),
             ),
@@ -170,7 +171,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: cs.shadow.withOpacity(0.18),
                             blurRadius: 24,
                             offset: const Offset(0, 10),
                           ),
@@ -191,26 +192,26 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       child: Text(
                         appName,
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
-                          color: _label,
+                          color: onSurface,
                           letterSpacing: 0.3,
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       '欢迎回来，登录以继续',
-                      style: TextStyle(fontSize: 15, color: _secondary),
+                      style: TextStyle(fontSize: 15, color: secondary),
                     ),
                     const SizedBox(height: 36),
-                    // iOS 分组式输入框
+                    // iOS 分组式输入框（跟随主题）
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cs.surfaceContainerLowest,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _hairline),
+                        border: Border.all(color: hairline),
                       ),
                       child: Column(
                         children: [
@@ -220,10 +221,10 @@ class _LoginViewState extends ConsumerState<LoginView> {
                             icon: CupertinoIcons.mail,
                             keyboardType: TextInputType.emailAddress,
                           ),
-                          const Padding(
-                            padding: EdgeInsets.only(left: 48),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 48),
                             child: Divider(
-                                height: 1, thickness: 1, color: _hairline),
+                                height: 1, thickness: 1, color: hairline),
                           ),
                           _iosField(
                             controller: _passwordController,
@@ -238,7 +239,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                     ? CupertinoIcons.eye_slash
                                     : CupertinoIcons.eye,
                                 size: 20,
-                                color: _secondary,
+                                color: secondary,
                               ),
                             ),
                           ),
@@ -246,40 +247,40 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // 记住账号密码（iOS 开关）
+                    // 记住账号密码（iOS 开关，激活色用主题色）
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           '记住账号密码',
-                          style: TextStyle(fontSize: 15, color: _label),
+                          style: TextStyle(fontSize: 15, color: onSurface),
                         ),
                         const Spacer(),
                         CupertinoSwitch(
                           value: _rememberMe,
+                          activeTrackColor: accent,
                           onChanged: (v) => setState(() => _rememberMe = v),
                         ),
                       ],
                     ),
                     const SizedBox(height: 28),
-                    // 登录按钮（iOS 实心圆角）
+                    // 登录按钮（主题色实心圆角）
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: CupertinoButton(
                         padding: EdgeInsets.zero,
                         borderRadius: BorderRadius.circular(14),
-                        color: _accent,
-                        disabledColor: _accent.withOpacity(0.5),
+                        color: accent,
+                        disabledColor: accent.withOpacity(0.5),
                         onPressed: _loading ? null : _login,
                         child: _loading
-                            ? const CupertinoActivityIndicator(
-                                color: Colors.white)
-                            : const Text(
+                            ? CupertinoActivityIndicator(color: cs.onPrimary)
+                            : Text(
                                 '登录',
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: cs.onPrimary,
                                 ),
                               ),
                       ),
@@ -290,9 +291,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       onTap: () => isSSPanel
                           ? _showInviteInfo(context)
                           : _goToRegister(),
-                      child: const Text(
+                      child: Text(
                         '没有账号？注册',
-                        style: TextStyle(color: _accent, fontSize: 15),
+                        style: TextStyle(color: accent, fontSize: 15),
                       ),
                     ),
                   ],
@@ -300,26 +301,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
               ),
             ),
           ),
-          // 顶部拖拽区（桌面端移动窗口）
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 44,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => windowManager.startDragging(),
-            ),
-          ),
-          // 右上角关闭（iOS 风格圆形按钮）
-          Positioned(
-            top: 14,
-            right: 14,
-            child: _CircleButton(
-              icon: CupertinoIcons.xmark,
-              onTap: () => exit(0),
-            ),
-          ),
+          // 窗口拖拽与关闭/最小化/最大化/置顶由应用自带窗口栏 (WindowHeaderContainer) 提供
         ],
       ),
     );
@@ -333,23 +315,26 @@ class _LoginViewState extends ConsumerState<LoginView> {
     TextInputType? keyboardType,
     Widget? suffix,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: _secondary),
+          Icon(icon, size: 20, color: cs.onSurfaceVariant),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: controller,
               obscureText: obscure,
               keyboardType: keyboardType,
-              style: const TextStyle(fontSize: 16, color: _label),
-              cursorColor: _accent,
+              style: TextStyle(fontSize: 16, color: cs.onSurface),
+              cursorColor: cs.primary,
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle:
-                    const TextStyle(color: Color(0xFFB7B7BC), fontSize: 16),
+                hintStyle: TextStyle(
+                  color: cs.onSurfaceVariant.withOpacity(0.6),
+                  fontSize: 16,
+                ),
                 border: InputBorder.none,
                 isCollapsed: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 17),
@@ -359,30 +344,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
           ),
           if (suffix != null) ...[const SizedBox(width: 8), suffix],
         ],
-      ),
-    );
-  }
-}
-
-/// iOS 风格的圆形浅底图标按钮
-class _CircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _CircleButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.05),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 15, color: _secondary),
       ),
     );
   }

@@ -38,7 +38,7 @@ dependencies:
   webdav_client: ^1.2.2
   dio: ^5.8.0+1
   win32: ^5.5.1
-  re_editor: ^0.8.0
+  re_editor: ^0.9.0
   re_highlight: ^0.0.3
   archive: ^4.0.7
   emoji_regex: ^0.0.5
@@ -48,6 +48,7 @@ dependencies:
   connectivity_plus: ^7.0.0
   screen_retriever: ^0.2.0
   defer_pointer: ^0.0.2
+  cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.0.0
   riverpod_annotation: ^3.0.0
   riverpod: ^3.0.0
@@ -81,6 +82,16 @@ dev_dependencies:
   riverpod_lint: ^3.0.0
 
   drift_dev: ^2.29.0
+
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/icon_android.png"
+  adaptive_icon_background: "#01112E"
+  adaptive_icon_foreground: "assets/images/icon_foreground.png"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

@@ -613,6 +613,13 @@ extension SetupControllerExt on AppController {
     if (mode == Mode.global) {
       updateCurrentGroupName(GroupName.GLOBAL.name);
     }
+    // 切换模式后立即清理旧连接，让新模式对现有连接也立刻生效
+    // （与切换节点 changeProxy 一致；否则浏览器旧 keep-alive 连接仍走旧路由，看起来"没变化"）
+    if (_ref.read(appSettingProvider).closeConnections) {
+      coreController.closeConnections();
+    } else {
+      coreController.resetConnections();
+    }
     addCheckIp();
   }
 
@@ -860,6 +867,11 @@ extension SystemControllerExt on AppController {
   }
 
   Future<void> handleBackOrExit() async {
+    // 未登录/未初始化（登录页）时 _ref 尚未注入，直接退出
+    if (!isAttach) {
+      await handleExit();
+      return;
+    }
     if (_ref.read(backBlockProvider)) {
       return;
     }
