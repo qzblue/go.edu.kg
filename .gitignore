@@ -75,3 +75,6 @@ core/*.exe.bak
 
 # 本地 env 备份
 env.windows.bak.json
+
+# 安装包编译输出
+installer/dist/
