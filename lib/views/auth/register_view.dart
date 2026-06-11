@@ -185,11 +185,15 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                         height: 64,
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        '注册$appName',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1565C0),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '注册$appName',
+                          maxLines: 1,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1565C0),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),

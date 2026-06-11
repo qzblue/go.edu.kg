@@ -183,8 +183,9 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
         if (system.isDesktop) const _HotkeyItem(),
         if (system.isWindows) const _LoopbackItem(),
         if (system.isAndroid) const _AccessItem(),
-        const _ConfigItem(),
-        const _AdvancedConfigItem(),
+        // 加速器版隐藏 DNS/TUN/路由/Override 等底层配置入口
+        if (!isSSPanel) const _ConfigItem(),
+        if (!isSSPanel) const _AdvancedConfigItem(),
         const _SettingItem(),
       ],
     );

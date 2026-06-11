@@ -18,6 +18,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _ssBaseUrl = 'https://go.edu.kg';
 const _ssCookieKey = 'sspanel_cookie';
 const _ssEmailKey = 'sspanel_email';
+// 持久化缓存订阅 token：SSPanel 登录 cookie 仅 1 小时有效，但订阅地址
+// /sub/{token}/clash 是公开的。缓存 token 后，即使 cookie 过期也能始终
+// 取到订阅与流量信息，保证节点持续可用。
+const _ssSubTokenKey = 'sspanel_sub_token';
 const _ssUa =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
     '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -27,6 +31,7 @@ class SSPanelApi implements PanelApi {
   late final Dio _dio;
   String? _cookie;
   String? _email;
+  String? _subToken;
 
   SSPanelApi._internal() {
     _dio = Dio(BaseOptions(
@@ -68,6 +73,7 @@ class SSPanelApi implements PanelApi {
     final prefs = await SharedPreferences.getInstance();
     _cookie = prefs.getString(_ssCookieKey);
     _email = prefs.getString(_ssEmailKey);
+    _subToken = prefs.getString(_ssSubTokenKey);
   }
 
   @override
@@ -81,15 +87,38 @@ class SSPanelApi implements PanelApi {
   Future<void> clearToken() async {
     _cookie = null;
     _email = null;
+    _subToken = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ssCookieKey);
     await prefs.remove(_ssEmailKey);
+    await prefs.remove(_ssSubTokenKey);
   }
 
   Future<void> _saveEmail(String email) async {
     _email = email;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_ssEmailKey, email);
+  }
+
+  Future<void> _saveSubToken(String token) async {
+    _subToken = token;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ssSubTokenKey, token);
+  }
+
+  /// 解析订阅 token：优先从登录态 /user 页抓取（顺便刷新缓存，应对用户在
+  /// 网页端重置订阅链接）；若会话已失效（cookie 过期 302），回退到缓存 token。
+  /// 这样只要成功登录过一次，订阅与流量信息就永远可用，不受 cookie 1 小时过期影响。
+  Future<String?> _resolveSubToken() async {
+    final html = await _getUserHtml();
+    if (html != null) {
+      final fresh = _extractSubToken(html);
+      if (fresh != null && fresh.isNotEmpty) {
+        if (fresh != _subToken) await _saveSubToken(fresh);
+        return fresh;
+      }
+    }
+    return _subToken;
   }
 
   /// 从响应的 Set-Cookie 头收集所有 name=value，拼成可回传的 Cookie 串。
@@ -132,6 +161,8 @@ class SSPanelApi implements PanelApi {
           await saveToken(cookie);
         }
         await _saveEmail(email);
+        // 趁 cookie 新鲜，立即抓取并缓存订阅 token，保证后续始终可取订阅
+        await _resolveSubToken();
         return {'success': true, 'message': body['msg']?.toString() ?? '登录成功'};
       }
       return {
@@ -161,11 +192,6 @@ class SSPanelApi implements PanelApi {
   String? _extractSubToken(String html) {
     final m = RegExp(r'/(?:sub|link)/([A-Za-z0-9]{8,})').firstMatch(html);
     return m?.group(1);
-  }
-
-  String? _extractEmail(String html) {
-    final m = RegExp(r'[\w.+-]+@[\w-]+\.[\w.-]+').firstMatch(html);
-    return m?.group(0);
   }
 
   /// 解析订阅响应头 `Subscription-Userinfo: upload=..; download=..; total=..; expire=..`
@@ -212,29 +238,27 @@ class SSPanelApi implements PanelApi {
   // ------------------------------------------------------------------ 用户信息
   @override
   Future<Map<String, dynamic>> getUserInfo() async {
-    final html = await _getUserHtml();
-    if (html == null) {
-      // 会话可能已失效
+    final token = await _resolveSubToken();
+    if (token == null) {
+      // 从未成功登录过，无可用信息
       return {'data': null};
     }
-    final token = _extractSubToken(html);
     final info = <String, dynamic>{
-      'email': _email ?? _extractEmail(html),
+      'email': _email,
       // SSPanel 由网页端管理套餐；置非空使客户端跳过"无套餐"拦截逻辑
       'plan_id': 1,
       'balance': 0,
     };
-    if (token != null) {
-      final header = await _fetchSubUserInfoHeader('$_ssBaseUrl/sub/$token/clash');
-      _applyUserInfoHeader(info, header);
-    }
+    // 流量/到期来自公开订阅响应头，cookie 过期也能读取
+    final header =
+        await _fetchSubUserInfoHeader('$_ssBaseUrl/sub/$token/clash');
+    _applyUserInfoHeader(info, header);
     return {'data': info};
   }
 
   @override
   Future<Map<String, dynamic>> getSubscribe() async {
-    final html = await _getUserHtml();
-    final token = html != null ? _extractSubToken(html) : null;
+    final token = await _resolveSubToken();
     return {
       'data': token != null
           ? {'token': token, 'subscribe_url': '$_ssBaseUrl/sub/$token/clash'}
@@ -247,9 +271,7 @@ class SSPanelApi implements PanelApi {
 
   @override
   Future<String?> fetchSubscribeUrl() async {
-    final html = await _getUserHtml();
-    if (html == null) return null;
-    final token = _extractSubToken(html);
+    final token = await _resolveSubToken();
     if (token == null) return null;
     return '$_ssBaseUrl/sub/$token/clash';
   }

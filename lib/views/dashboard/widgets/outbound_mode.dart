@@ -10,6 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+/// 加速器面向普通用户：仅展示「智能分流(rule) / 全局(global)」，隐藏 direct。
+/// 切回 Xboard 版（isSSPanel=false）时恢复全部模式。
+List<Mode> get _outboundModes =>
+    isSSPanel ? const [Mode.rule, Mode.global] : Mode.values;
+
 class OutboundMode extends StatelessWidget {
   const OutboundMode({super.key});
 
@@ -53,7 +58,7 @@ class OutboundMode extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          for (final item in Mode.values)
+                          for (final item in _outboundModes)
                             ListItem.radio(
                               horizontalTitleGap: 8,
                               tileTitleAlignment: ListTileTitleAlignment.center,
@@ -132,7 +137,7 @@ class OutboundModeV2 extends StatelessWidget {
                         constraints: BoxConstraints.expand(),
                         child: CommonTabBar<Mode>(
                           children: Map.fromEntries(
-                            Mode.values.map(
+                            _outboundModes.map(
                               (item) => MapEntry(
                                 item,
                                 Container(

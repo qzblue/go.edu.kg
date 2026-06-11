@@ -140,23 +140,43 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset(
-                        'assets/images/icon.png',
-                        width: 80,
-                        height: 80,
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1565C0).withOpacity(0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/icon.png',
+                            width: 84,
+                            height: 84,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        appName,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1565C0),
+                      const SizedBox(height: 18),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          appName,
+                          maxLines: 1,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1565C0),
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '登录以继续',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        '欢迎使用，登录以继续',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
                       ),
