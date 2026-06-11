@@ -4,10 +4,17 @@ import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/xboard_api.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/auth/register_view.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
+
+// iOS 风格调色板
+const _accent = Color(0xFF007AFF);
+const _label = Color(0xFF1C1C1E);
+const _secondary = Color(0xFF8E8E93);
+const _hairline = Color(0xFFE5E5EA);
 
 const _rememberKey = 'login_remember';
 const _savedEmailKey = 'login_email';
@@ -103,228 +110,279 @@ class _LoginViewState extends ConsumerState<LoginView> {
     );
   }
 
+  /// 邀请制说明（iOS 原生弹窗）
+  void _showInviteInfo(BuildContext context) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('关于注册'),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Text(
+            '本产品由在美华人自发组建的协会搭建，是专为短期回国的在美华人提供的'
+            '联网工具。\n\n'
+            '目前采用协会内部邀请制度，暂不对外公开注册与销售。'
+            '如需账号，请通过协会内部邀请获取。',
+            style: TextStyle(fontSize: 13, height: 1.45),
+            textAlign: TextAlign.start,
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F7),
       body: Stack(
         children: [
-          // Gradient background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
-              ),
-            ),
-          ),
-          // Card content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF1565C0).withOpacity(0.25),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/icon.png',
-                            width: 84,
-                            height: 84,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          appName,
-                          maxLines: 1,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1565C0),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '欢迎使用，登录以继续',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: '邮箱',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
-                          ),
-                        ),
-                        onSubmitted: (_) => _login(),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: '密码',
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () {
-                              setState(() => _obscurePassword = !_obscurePassword);
-                            },
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
-                          ),
-                        ),
-                        onSubmitted: (_) => _login(),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _rememberMe,
-                            activeColor: const Color(0xFF1565C0),
-                            onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                          ),
-                          GestureDetector(
-                            onTap: () => setState(() => _rememberMe = !_rememberMe),
-                            child: Text(
-                              '记住账号密码',
-                              style: TextStyle(color: Colors.grey[700]),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: _loading
-                                ? null
-                                : const LinearGradient(
-                                    colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
-                                  ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _loading ? Colors.grey[300] : Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _loading ? null : _login,
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text(
-                                    '登录',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      // SSPanel 已关闭注册，仅 Xboard 后端显示注册入口
-                      if (!isSSPanel) ...[
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: _goToRegister,
-                          child: const Text(
-                            '没有账号？注册',
-                            style: TextStyle(color: Color(0xFF1565C0)),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+          // 极淡的纵向背景渐变（iOS 质感，非高饱和）
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFFFFF), Color(0xFFEDF0F5)],
                 ),
               ),
             ),
           ),
-          // Drag area (title bar substitute) — lets user move window
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 56),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Logo
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/icon.png',
+                          width: 92,
+                          height: 92,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        appName,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: _label,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '欢迎回来，登录以继续',
+                      style: TextStyle(fontSize: 15, color: _secondary),
+                    ),
+                    const SizedBox(height: 36),
+                    // iOS 分组式输入框
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _hairline),
+                      ),
+                      child: Column(
+                        children: [
+                          _iosField(
+                            controller: _emailController,
+                            hint: '邮箱',
+                            icon: CupertinoIcons.mail,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 48),
+                            child: Divider(
+                                height: 1, thickness: 1, color: _hairline),
+                          ),
+                          _iosField(
+                            controller: _passwordController,
+                            hint: '密码',
+                            icon: CupertinoIcons.lock,
+                            obscure: _obscurePassword,
+                            suffix: GestureDetector(
+                              onTap: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
+                              child: Icon(
+                                _obscurePassword
+                                    ? CupertinoIcons.eye_slash
+                                    : CupertinoIcons.eye,
+                                size: 20,
+                                color: _secondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // 记住账号密码（iOS 开关）
+                    Row(
+                      children: [
+                        const Text(
+                          '记住账号密码',
+                          style: TextStyle(fontSize: 15, color: _label),
+                        ),
+                        const Spacer(),
+                        CupertinoSwitch(
+                          value: _rememberMe,
+                          onChanged: (v) => setState(() => _rememberMe = v),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    // 登录按钮（iOS 实心圆角）
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        borderRadius: BorderRadius.circular(14),
+                        color: _accent,
+                        disabledColor: _accent.withOpacity(0.5),
+                        onPressed: _loading ? null : _login,
+                        child: _loading
+                            ? const CupertinoActivityIndicator(
+                                color: Colors.white)
+                            : const Text(
+                                '登录',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    GestureDetector(
+                      // SSPanel 为邀请制：点击展示协会说明而非注册表单
+                      onTap: () => isSSPanel
+                          ? _showInviteInfo(context)
+                          : _goToRegister(),
+                      child: const Text(
+                        '没有账号？注册',
+                        style: TextStyle(color: _accent, fontSize: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 顶部拖拽区（桌面端移动窗口）
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 48,
+            height: 44,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (_) => windowManager.startDragging(),
             ),
           ),
-          // Close button on gradient background
+          // 右上角关闭（iOS 风格圆形按钮）
           Positioned(
-            top: 12,
-            right: 12,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              tooltip: '关闭',
-              onPressed: () => exit(0),
+            top: 14,
+            right: 14,
+            child: _CircleButton(
+              icon: CupertinoIcons.xmark,
+              onTap: () => exit(0),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _iosField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    TextInputType? keyboardType,
+    Widget? suffix,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: _secondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              obscureText: obscure,
+              keyboardType: keyboardType,
+              style: const TextStyle(fontSize: 16, color: _label),
+              cursorColor: _accent,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle:
+                    const TextStyle(color: Color(0xFFB7B7BC), fontSize: 16),
+                border: InputBorder.none,
+                isCollapsed: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 17),
+              ),
+              onSubmitted: (_) => _login(),
+            ),
+          ),
+          if (suffix != null) ...[const SizedBox(width: 8), suffix],
+        ],
+      ),
+    );
+  }
+}
+
+/// iOS 风格的圆形浅底图标按钮
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.05),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 15, color: _secondary),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/xboard_api.dart';
 import 'package:fl_clash/state.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -145,15 +146,18 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F7),
       body: Stack(
         children: [
-          // Gradient background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+          // 浅色背景（iOS 质感）
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFFFFF), Color(0xFFEDF0F5)],
+                ),
               ),
             ),
           ),
@@ -166,12 +170,13 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                 child: Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(24),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE5E5EA)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 24,
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
                     ],
@@ -395,24 +400,41 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
               onPanStart: (_) => windowManager.startDragging(),
             ),
           ),
-          // Back button on gradient background
+          // iOS 风格返回按钮：左上角 chevron + 文字
           Positioned(
             top: 12,
-            left: 12,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              tooltip: '返回',
+            left: 6,
+            child: CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              minSize: 0,
               onPressed: () => Navigator.of(context).pop(),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(CupertinoIcons.back, size: 22, color: Color(0xFF007AFF)),
+                  SizedBox(width: 2),
+                  Text('返回',
+                      style: TextStyle(fontSize: 16, color: Color(0xFF007AFF))),
+                ],
+              ),
             ),
           ),
-          // Close button on gradient background
+          // 右上角关闭（iOS 风格圆形浅底）
           Positioned(
-            top: 12,
-            right: 12,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              tooltip: '关闭',
-              onPressed: () => Navigator.of(context).pop(),
+            top: 14,
+            right: 14,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(CupertinoIcons.xmark,
+                    size: 15, color: Color(0xFF8E8E93)),
+              ),
             ),
           ),
         ],
