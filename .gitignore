@@ -78,3 +78,7 @@ env.windows.bak.json
 
 # 安装包编译输出
 installer/dist/
+
+# macOS 打包输出
+/dist/
+/out/
