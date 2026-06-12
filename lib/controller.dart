@@ -386,6 +386,50 @@ extension ProxiesControllerExt on AppController {
     }, args: [groupName, proxyName]);
   }
 
+  // 选节点时同时把 GLOBAL 组也指向同一节点，使「智能分流」与「全局代理」
+  // 用的是同一个节点（否则两模式各自独立、还可能落到 DIRECT）。
+  void changeProxyUnifiedDebounce(String groupName, String proxyName) {
+    debouncer.call(FunctionTag.changeProxy, (
+      String groupName,
+      String proxyName,
+    ) async {
+      await changeProxy(groupName: groupName, proxyName: proxyName);
+      _applyGlobalSelection(proxyName);
+      updateGroupsDebounce();
+    }, args: [groupName, proxyName]);
+  }
+
+  // 把 GLOBAL 组选到指定节点（仅当 GLOBAL 存在且包含该节点）。
+  void _applyGlobalSelection(String proxyName) {
+    final globalName = GroupName.GLOBAL.name;
+    if (proxyName.isEmpty || proxyName == globalName) return;
+    final groups = _ref.read(groupsProvider);
+    final index = groups.indexWhere((g) => g.name == globalName);
+    if (index == -1) return;
+    if (!groups[index].all.any((p) => p.name == proxyName)) return;
+    coreController.changeProxy(
+      ChangeProxyParams(groupName: globalName, proxyName: proxyName),
+    );
+    updateCurrentSelectedMap(globalName, proxyName);
+  }
+
+  // 切到全局模式时，让 GLOBAL 组跟随主选择组当前选中的节点，
+  // 避免全局模式落到 DIRECT、或与分流模式节点不一致。
+  void _syncGlobalToPrimary() {
+    final globalName = GroupName.GLOBAL.name;
+    final groups = _ref.read(groupsProvider);
+    final selectedMap = _ref.read(
+      currentProfileProvider.select((state) => state?.selectedMap ?? {}),
+    );
+    final primaryIndex = groups.indexWhere(
+      (g) => g.type == GroupType.Selector && g.name != globalName,
+    );
+    if (primaryIndex == -1) return;
+    final primary = groups[primaryIndex];
+    final node = selectedMap[primary.name] ?? primary.now ?? '';
+    _applyGlobalSelection(node);
+  }
+
   Future<void> updateGroups() async {
     try {
       commonPrint.log('updateGroups start');
@@ -612,6 +656,7 @@ extension SetupControllerExt on AppController {
         .update((state) => state.copyWith(mode: mode));
     if (mode == Mode.global) {
       updateCurrentGroupName(GroupName.GLOBAL.name);
+      _syncGlobalToPrimary();
     }
     // 切换模式后立即清理旧连接，让新模式对现有连接也立刻生效
     // （与切换节点 changeProxy 一致；否则浏览器旧 keep-alive 连接仍走旧路由，看起来"没变化"）

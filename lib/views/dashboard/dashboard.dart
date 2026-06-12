@@ -830,7 +830,7 @@ class _NodeSelector extends ConsumerWidget {
     }
 
     // Use the first Selector-type group as the primary proxy group
-    final selectorGroups = groups.where((g) => g.type == GroupType.Selector).toList();
+    final selectorGroups = groups.where((g) => g.type == GroupType.Selector && g.name != GroupName.GLOBAL.name).toList();
     final primaryGroup = selectorGroups.isNotEmpty ? selectorGroups.first : groups.first;
     // currentGroupsStateProvider 会把 now 抹成空串（见 providers/state.dart），
     // 所以这里改读原始 groupsProvider 拿核心真实的 now（自动选择实测选中的节点）。
@@ -1307,7 +1307,7 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
     setState(() => _testingAll = true);
     try {
       final groups = ref.read(currentGroupsStateProvider).value;
-      final selectorGroups = groups.where((g) => g.type == GroupType.Selector).toList();
+      final selectorGroups = groups.where((g) => g.type == GroupType.Selector && g.name != GroupName.GLOBAL.name).toList();
       final proxies = selectorGroups
           .expand((g) => g.all.where(_isUserSelectableProxy))
           .where((p) => p.type != 'URLTest')
@@ -1356,7 +1356,7 @@ class _NodeSelectionPageState extends ConsumerState<_NodeSelectionPage>
     final groups = groupsState.value;
 
     // Only show Selector-type groups; hide URLTest/Fallback groups
-    final mainGroups = groups.where((g) => g.type == GroupType.Selector).toList();
+    final mainGroups = groups.where((g) => g.type == GroupType.Selector && g.name != GroupName.GLOBAL.name).toList();
     // 只展示主分组（首个 Selector，与仪表盘"当前节点"一致），
     // 从而扁平化为单一节点列表，不再出现 GLOBAL/netflix 等分组分类
     final primaryGroups =
@@ -1474,7 +1474,7 @@ class _NodeListForRegion extends ConsumerWidget {
                   isSelected: isSelected,
                   icon: Icons.flash_auto_rounded,
                   onTap: () {
-                    appController.changeProxyDebounce(group.name, proxy.name);
+                    appController.changeProxyUnifiedDebounce(group.name, proxy.name);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text('已选择 自动选择'),
@@ -1496,7 +1496,7 @@ class _NodeListForRegion extends ConsumerWidget {
                 subtitle: proxy.type,
                 isSelected: isSelected,
                 onTap: () {
-                  appController.changeProxyDebounce(group.name, proxy.name);
+                  appController.changeProxyUnifiedDebounce(group.name, proxy.name);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('已选择 ${proxy.name}'),

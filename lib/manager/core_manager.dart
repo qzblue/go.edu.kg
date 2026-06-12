@@ -102,7 +102,10 @@ class _CoreContainerState extends ConsumerState<CoreManager>
       return;
     }
     ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+    // 'socket done' 是内核连接正常关闭（尤其退出程序时）触发的，不是真崩溃，
+    // 不向用户弹提示，免得看着像报错。
+    if (message != 'socket done' &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
       context.showNotifier(message);
     }
     await coreController.shutdown(false);
