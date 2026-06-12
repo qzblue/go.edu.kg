@@ -1,6 +1,6 @@
 # macOS 客户端打包指南（M 芯片 / Intel）
 
-> ⚠️ **必须在 macOS 上编译**。Windows/Linux 无法产出 `.app`/`.dmg`（Flutter macOS 构建依赖 Xcode/clang、CocoaPods）。本仓库已把 macOS 平台层（图标、显示名、dmg 标题、版本号）和共享业务逻辑都准备好，到 Mac 上"两条命令出双架构包"。
+> ⚠️ **必须在 macOS 上编译**。Windows/Linux 无法产出 `.app`/`.dmg`（Flutter macOS 构建依赖 Xcode/clang、CocoaPods）。本仓库已把 macOS 平台层（图标、显示名、dmg 标题、版本号）和共享业务逻辑都准备好，到 Mac 上**一条命令出 Universal 通用包**（M/Intel 通吃，Intel Mac 即可构建）。
 
 ## 已就绪（无需再改）
 - **应用内全部界面** —— SSPanel 登录/订阅/流量/隐藏注册商城余额/智能分流·全局/品牌名，全在共享 `lib/`，macOS 自动复用（同安卓）。
@@ -18,31 +18,31 @@
 
 > 不需要 Apple 开发者账号也能本地出 dmg；但要**对外分发免"已损坏/无法验证"提示**，需开发者账号做**代码签名 + 公证(notarization)**，见末尾。
 
-## 打包（两条命令，分别出 M / Intel）
-在 `source/` 目录：
+## 方式 A：Universal 通用包（推荐 ✅，一个 dmg 通吃 M/Intel）
 
-```bash
-flutter pub get
+**一台 Intel Mac 就能构建**（arm64 部分是交叉编译，构建没问题，只是没法在 Intel 机上运行测试 arm64）。在 `source/` 目录一条命令：
 
-# M 芯片（Apple Silicon, arm64）
-dart setup.dart macos --arch arm64 --env pre
-
-# Intel（x86_64 / amd64）
-dart setup.dart macos --arch amd64 --env pre
-```
-
-每条会：① 用 Go 编译对应架构的 `FlClashCore` → ② `flutter_distributor` 打出 `dmg`。产物在 `source/dist/`。
-> 两次会先后生成 dmg，**第二次前先把第一次的 dmg 改名移走**，免得被覆盖（或直接用下面的脚本）。
-
-也可以用便捷脚本（自动改名到 `out/`）：
 ```bash
 bash build_macos.sh
 ```
-产出：
-- `out/美国华人华侨贸易中心_v1.0_macOS_AppleSilicon.dmg`（M 芯片）
-- `out/美国华人华侨贸易中心_v1.0_macOS_Intel.dmg`（Intel）
 
-> 想要"一个 dmg 通吃两种芯片"（universal）需把两架构 `FlClashCore` 和 .app 用 `lipo` 合并，较繁琐；按用户要求这里是**分架构两个包**。
+它做的事：① Go 交叉编译 `FlClashCore` 的 arm64 + amd64 → ② `lipo` 合并成 universal 内核放到 `libclash/macos/FlClashCore` → ③ `flutter build`(release 下 .app 主程序本就是 arm64+x86_64 universal) 捆绑该 universal 内核 → ④ flutter_distributor 打 dmg。
+
+产出：`out/美国华人华侨贸易中心_v1.0_macOS_Universal.dmg`（一个文件，两种芯片都**原生**运行）。
+脚本结尾会 `lipo -info` 校验主程序确实是 `arm64 x86_64`。
+
+> 原理：Flutter 的 macOS release `.app` 默认就是双架构 universal；唯一与架构相关的是捆绑的 Go 内核 `FlClashCore`，把它 lipo 成 universal 即可，无需分别打两个包。
+
+## 方式 B：分架构两个包（按需）
+
+如果坚持要 M / Intel 各一个 dmg：
+```bash
+flutter pub get
+dart setup.dart macos --arch arm64 --env pre   # M 芯片 → dist/
+# 先把 dist/ 里的 dmg 改名移走，再：
+dart setup.dart macos --arch amd64 --env pre   # Intel → dist/
+```
+> 两次都会生成到 `dist/`，第二次前先把第一次的 dmg 改名，免被覆盖。
 
 ## 签名 / 公证（对外分发才需要）
 ```bash
